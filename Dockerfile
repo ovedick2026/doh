@@ -1,7 +1,7 @@
 FROM alpine:latest
 
-# 安装 curl 和 ca-certificates 用于拉取和验证证书
-RUN apk add --no-cache curl ca-certificates bash
+# 安装 curl、ca-certificates、bash 以及 openssl
+RUN apk add --no-cache curl ca-certificates bash openssl
 
 # 自动获取 GitHub 官方最新的 dnsproxy release 二进制文件
 RUN ARCH=$(uname -m) && \
@@ -17,9 +17,7 @@ RUN ARCH=$(uname -m) && \
     chmod +x /usr/local/bin/dnsproxy && \
     rm -rf dnsproxy.tar.gz linux-${ASSET_ARCH}
 
-# 复制启动脚本
 COPY entrypoint.sh /entrypoint.sh
 RUN chmod +x /entrypoint.sh
 
-# 暴露端口由环境变量动态传入（默认为 10000/3000）
 ENTRYPOINT ["/entrypoint.sh"]
