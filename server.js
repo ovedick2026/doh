@@ -5,12 +5,7 @@ const PORT = process.env.PORT || 10000;
 
 // 配置亚太优质多上游（并行竞速）
 const UPSTREAMS = [
-  'https://1.1.1.1/dns-query',
-  'https://dns.google/dns-query',
-  'https://fastdo.pages.dev/dns-query',
-  'https://56pvv79mju.cloudflare-gateway.com/dns-query',
-  'https://doh.jlz.cc.cd/dns-query',
-  'https://ooh.falix.org/dns-query'
+  'https://1.1.1.1/dns-query'
 ];
 
 // 短期内存缓存配置
