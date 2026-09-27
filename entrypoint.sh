@@ -1,26 +1,51 @@
 #!/bin/bash
 
+# 外部 HTTP 端口，默认为 10000
 LISTEN_PORT=${PORT:-10000}
+INTERNAL_DOH_PORT=10443
 
-# 1. 生成本地自签名证书（让 dnsproxy 能够启动 HTTPS 监听）
+# 1. 生成内部专用的自签证书
 CERT_DIR="/tmp/ssl"
 mkdir -p "$CERT_DIR"
 if [ ! -f "$CERT_DIR/server.crt" ]; then
-  echo "Generating self-signed certificate for internal HTTPS listener..."
-  openssl req -x509 -newkey rsa:2048 -nodes -keyout "$CERT_DIR/server.key" -out "$CERT_DIR/server.crt" -days 3650 -subj "/CN=localhost"
+  openssl req -x509 -newkey rsa:2048 -nodes \
+    -keyout "$CERT_DIR/server.key" \
+    -out "$CERT_DIR/server.crt" \
+    -days 3650 -subj "/CN=127.0.0.1"
 fi
 
-echo "Starting dnsproxy on port ${LISTEN_PORT}..."
+# 2. 生成 Caddy 配置文件 (作为 HTTP -> HTTPS 反代并提供健康检查)
+cat <<EOF > /tmp/Caddyfile
+{
+    admin off
+    auto_https off
+}
 
-# 2. 启动 dnsproxy（适配最新命令行参数）
-# -p 0: 禁用 53 端口的监听
-# --https-port: 监听 Render 分配的端口
-# --upstream-mode=parallel: 并发向上游所有 DNS 发起请求，取最快响应
-# --cache-optimistic: 开启乐观缓存
-exec /usr/local/bin/dnsproxy \
-  -l 0.0.0.0 \
+:$LISTEN_PORT {
+    # 根路径与探针响应，健康检查与浏览器访问不会报错
+    handle / {
+        respond "DoH Proxy is Healthy and Running!" 200
+    }
+    handle /health {
+        respond "OK" 200
+    }
+
+    # DoH 请求反代给内部 dnsproxy
+    handle /dns-query* {
+        reverse_proxy https://127.0.0.1:${INTERNAL_DOH_PORT} {
+            transport http {
+                tls_insecure_skip_verify
+            }
+        }
+    }
+}
+EOF
+
+# 3. 启动后台 dnsproxy（监听 127.0.0.1:10443）
+/usr/local/bin/dnsproxy \
+  -l 127.0.0.1 \
   -p 0 \
-  --https-port=${LISTEN_PORT} \
+  --https-port=${INTERNAL_DOH_PORT} \
   --tls-crt="$CERT_DIR/server.crt" \
   --tls-key="$CERT_DIR/server.key" \
   --upstream-mode=parallel \
@@ -32,4 +57,7 @@ exec /usr/local/bin/dnsproxy \
   -u https://cloudflare-dns.com/dns-query \
   -u https://dns.google/dns-query \
   -u https://dns.quad9.net/dns-query \
-  -u https://101.101.101.101/dns-query
+  -u https://101.101.101.101/dns-query &
+
+# 4. 前台启动 Caddy 处理外部 HTTP 流量
+exec caddy run --config /tmp/Caddyfile --adapter caddyfile
