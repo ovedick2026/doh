@@ -1,9 +1,9 @@
 FROM alpine:latest
 
-# 安装 curl、ca-certificates、bash 以及 openssl
-RUN apk add --no-cache curl ca-certificates bash openssl
+# 安装 curl, bash, openssl, caddy
+RUN apk add --no-cache curl bash openssl caddy ca-certificates
 
-# 自动获取 GitHub 官方最新的 dnsproxy release 二进制文件
+# 自动拉取官方最新的 dnsproxy
 RUN ARCH=$(uname -m) && \
     case "$ARCH" in \
       x86_64)  ASSET_ARCH="amd64" ;; \
