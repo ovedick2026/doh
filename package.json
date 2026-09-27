@@ -1,0 +1,14 @@
+{
+  "name": "render-fast-doh",
+  "version": "1.0.0",
+  "type": "module",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "dependencies": {
+    "dns-packet": "^5.6.1"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}
